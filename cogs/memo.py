@@ -1,14 +1,28 @@
-# cogs/memo.py
 import discord
 from discord.ext import commands
 from discord.ui import Button, View, Select
 import asyncio
+import json
+import os
 
 memo_data = {}
 
 class MemoCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.load_memo_data()  # 加載備忘錄資料
+
+    def load_memo_data(self):
+        """從本地 JSON 文件加載備忘錄資料"""
+        if os.path.exists("memo_data.json"):
+            with open("memo_data.json", "r", encoding="utf-8") as f:
+                global memo_data
+                memo_data = json.load(f)
+
+    def save_memo_data(self):
+        """將備忘錄資料保存到本地 JSON 文件"""
+        with open("memo_data.json", "w", encoding="utf-8") as f:
+            json.dump(memo_data, f, ensure_ascii=False, indent=4)
 
     @commands.command()
     async def memo(self, ctx):
@@ -38,7 +52,8 @@ class MemoCog(commands.Cog):
                         await ctx.send(f"活動 `{activity}` 已存在！")
                     else:
                         memo_data[activity] = {"join": [], "not_join": [], "consider": []}
-                        await ctx.send(content=generate_memo_message(activity), view=create_buttons(activity))
+                        self.save_memo_data()  # 儲存到本地
+                        await ctx.send(content=self.generate_memo_message(activity), view=self.create_buttons(activity))
                 except asyncio.TimeoutError:
                     await ctx.send("建立備忘錄逾時，請重新操作。")
 
@@ -52,8 +67,8 @@ class MemoCog(commands.Cog):
                     async def check_callback(check_interaction: discord.Interaction):
                         activity_to_check = check_menu.values[0]
                         await check_interaction.response.send_message(
-                            content=generate_memo_message(activity_to_check),
-                            view=create_buttons(activity_to_check)
+                            content=self.generate_memo_message(activity_to_check),
+                            view=self.create_buttons(activity_to_check)
                         )
 
                     check_menu.callback = check_callback
@@ -72,6 +87,7 @@ class MemoCog(commands.Cog):
                 async def delete_callback(delete_interaction: discord.Interaction):
                     activity_to_delete = delete_menu.values[0]
                     del memo_data[activity_to_delete]
+                    self.save_memo_data()  # 儲存到本地
                     await delete_interaction.response.send_message(f"已刪除備忘錄 `{activity_to_delete}`")
 
                 delete_menu.callback = delete_callback
@@ -84,68 +100,71 @@ class MemoCog(commands.Cog):
         view.add_item(select_menu)
         await ctx.send("選擇要執行的操作：", view=view)
 
-def generate_memo_message(activity: str) -> str:
-    """產生活動訊息"""
-    join_list = memo_data[activity]["join"]
-    not_join_list = memo_data[activity]["not_join"]
-    consider_list = memo_data[activity]["consider"]
+    def generate_memo_message(self, activity: str) -> str:
+        """產生活動訊息"""
+        join_list = memo_data[activity]["join"]
+        not_join_list = memo_data[activity]["not_join"]
+        consider_list = memo_data[activity]["consider"]
 
-    join_str = "、".join(join_list) if join_list else "無"
-    not_join_str = "、".join(not_join_list) if not_join_list else "無"
-    consider_str = "、".join(consider_list) if consider_list else "無"
+        join_str = "、".join(join_list) if join_list else "無"
+        not_join_str = "、".join(not_join_list) if not_join_list else "無"
+        consider_str = "、".join(consider_list) if consider_list else "無"
 
-    return (
-        f"**活動：{activity}**\n\n"
-        f"**加入：** {join_str}\n"
-        f"**不加入：** {not_join_str}\n"
-        f"**考慮加入：** {consider_str}"
-    )
+        return (
+            f"**活動：{activity}**\n\n"
+            f"**加入：** {join_str}\n"
+            f"**不加入：** {not_join_str}\n"
+            f"**考慮加入：** {consider_str}"
+        )
 
-def create_buttons(activity: str) -> View:
-    """建立加入、不加入、考慮加入的按鈕"""
-    join_button = Button(label="加入", style=discord.ButtonStyle.green)
-    not_join_button = Button(label="不加入", style=discord.ButtonStyle.red)
-    consider_button = Button(label="考慮加入", style=discord.ButtonStyle.grey)
+    def create_buttons(self, activity: str) -> View:
+        """建立加入、不加入、考慮加入的按鈕"""
+        join_button = Button(label="加入", style=discord.ButtonStyle.green)
+        not_join_button = Button(label="不加入", style=discord.ButtonStyle.red)
+        consider_button = Button(label="考慮加入", style=discord.ButtonStyle.grey)
 
-    async def join_callback(interaction: discord.Interaction):
-        user = interaction.user.name
-        if user in memo_data[activity]["not_join"]:
-            memo_data[activity]["not_join"].remove(user)
-        if user in memo_data[activity]["consider"]:
-            memo_data[activity]["consider"].remove(user)
-        if user not in memo_data[activity]["join"]:
-            memo_data[activity]["join"].append(user)
-        await interaction.response.edit_message(content=generate_memo_message(activity), view=create_buttons(activity))
+        async def join_callback(interaction: discord.Interaction):
+            user = interaction.user.name
+            if user in memo_data[activity]["not_join"]:
+                memo_data[activity]["not_join"].remove(user)
+            if user in memo_data[activity]["consider"]:
+                memo_data[activity]["consider"].remove(user)
+            if user not in memo_data[activity]["join"]:
+                memo_data[activity]["join"].append(user)
+            self.save_memo_data()  # 儲存到本地
+            await interaction.response.edit_message(content=self.generate_memo_message(activity), view=self.create_buttons(activity))
 
-    async def not_join_callback(interaction: discord.Interaction):
-        user = interaction.user.name
-        if user in memo_data[activity]["join"]:
-            memo_data[activity]["join"].remove(user)
-        if user in memo_data[activity]["consider"]:
-            memo_data[activity]["consider"].remove(user)
-        if user not in memo_data[activity]["not_join"]:
-            memo_data[activity]["not_join"].append(user)
-        await interaction.response.edit_message(content=generate_memo_message(activity), view=create_buttons(activity))
+        async def not_join_callback(interaction: discord.Interaction):
+            user = interaction.user.name
+            if user in memo_data[activity]["join"]:
+                memo_data[activity]["join"].remove(user)
+            if user in memo_data[activity]["consider"]:
+                memo_data[activity]["consider"].remove(user)
+            if user not in memo_data[activity]["not_join"]:
+                memo_data[activity]["not_join"].append(user)
+            self.save_memo_data()  # 儲存到本地
+            await interaction.response.edit_message(content=self.generate_memo_message(activity), view=self.create_buttons(activity))
 
-    async def consider_callback(interaction: discord.Interaction):
-        user = interaction.user.name
-        if user in memo_data[activity]["join"]:
-            memo_data[activity]["join"].remove(user)
-        if user in memo_data[activity]["not_join"]:
-            memo_data[activity]["not_join"].remove(user)
-        if user not in memo_data[activity]["consider"]:
-            memo_data[activity]["consider"].append(user)
-        await interaction.response.edit_message(content=generate_memo_message(activity), view=create_buttons(activity))
+        async def consider_callback(interaction: discord.Interaction):
+            user = interaction.user.name
+            if user in memo_data[activity]["join"]:
+                memo_data[activity]["join"].remove(user)
+            if user in memo_data[activity]["not_join"]:
+                memo_data[activity]["not_join"].remove(user)
+            if user not in memo_data[activity]["consider"]:
+                memo_data[activity]["consider"].append(user)
+            self.save_memo_data()  # 儲存到本地
+            await interaction.response.edit_message(content=self.generate_memo_message(activity), view=self.create_buttons(activity))
 
-    join_button.callback = join_callback
-    not_join_button.callback = not_join_callback
-    consider_button.callback = consider_callback
+        join_button.callback = join_callback
+        not_join_button.callback = not_join_callback
+        consider_button.callback = consider_callback
 
-    view = View()
-    view.add_item(join_button)
-    view.add_item(not_join_button)
-    view.add_item(consider_button)
-    return view
+        view = View()
+        view.add_item(join_button)
+        view.add_item(not_join_button)
+        view.add_item(consider_button)
+        return view
 
 def setup(bot):
     bot.add_cog(MemoCog(bot))

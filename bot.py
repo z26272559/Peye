@@ -6,8 +6,8 @@ intents.messages = True
 intents.message_content = True 
 intents.voice_states = True
 
-OWNER_ID = 1308355499284103201
-
+OWNER_ID = 593426927394488357
+TOKEN = "MTI0NjA1NTgyOTY4MjEyNjkzOQ.GqpIbI.MADZe-Tfp_evFbJ8CYfMra1_YaDL3tI0LMTW7A"
 # 禁用內建的 help 指令
 bot = commands.Bot(command_prefix="!", intents=intents, case_insensitive=True, help_command=None)
 
@@ -60,4 +60,4 @@ async def reload(ctx, extension: str):
     else:
         await ctx.send("你沒有權限執行這個指令！")
 
-bot.run('MTMwODM1NjQ3MjQyOTYwOTAxMQ.GOUkpM.u-Fy6_0pDubXK8vCEWP0O4dWS0gia8G1LLYzxY')
+bot.run(TOKEN)
