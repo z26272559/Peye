@@ -7,7 +7,7 @@ intents.message_content = True
 intents.voice_states = True
 
 OWNER_ID = 593426927394488357
-TOKEN = "MTI0NjA1NTgyOTY4MjEyNjkzOQ.Gomiit.GIdFhOrYZyKy6fy3pkp6UhRJY_7xGa8K102xVY"
+TOKEN = ""
 # 禁用內建的 help 指令
 bot = commands.Bot(command_prefix="!", intents=intents, case_insensitive=True, help_command=None)
 
